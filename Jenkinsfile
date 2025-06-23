@@ -8,30 +8,30 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: docker
-    image: docker:24.0.5
-    command:
-    - cat
-    tty: true
-    volumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
-  - name: kubectl
-    image: bitnami/kubectl:latest
-    command:
-    - cat
-    tty: true
+    - name: docker
+      image: docker:24.0.5
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+    - name: kubectl
+      image: lachlanevenson/k8s-kubectl:v1.27.4
+      command:
+        - cat
+      tty: true
   volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
 """
         }
     }
 
     environment {
-        DOCKER_IMAGE = "6065meet/static-website"
-        TAG = "latest"
+        DOCKER_IMAGE = "6065meet/static-website:latest"
+        KUBE_NAMESPACE = "webpage"
     }
 
     stages {
@@ -44,7 +44,7 @@ spec:
         stage('Build Docker Image') {
             steps {
                 container('docker') {
-                    sh 'docker build -t $DOCKER_IMAGE:$TAG .'
+                    sh 'docker build -t $DOCKER_IMAGE .'
                 }
             }
         }
@@ -53,7 +53,7 @@ spec:
             steps {
                 container('docker') {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                        sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
+                        sh 'echo $PASS | docker login -u $USER --password-stdin'
                     }
                 }
             }
@@ -62,7 +62,7 @@ spec:
         stage('Push Image') {
             steps {
                 container('docker') {
-                    sh 'docker push $DOCKER_IMAGE:$TAG'
+                    sh 'docker push $DOCKER_IMAGE'
                 }
             }
         }
@@ -71,9 +71,8 @@ spec:
             steps {
                 container('kubectl') {
                     sh '''
-                    kubectl set image deployment/static-website static-website=$DOCKER_IMAGE:$TAG -n portfolio || \
-                    kubectl create deployment static-website --image=$DOCKER_IMAGE:$TAG -n portfolio
-                    kubectl expose deployment static-website --type=NodePort --port=80 -n portfolio || true
+                    kubectl config set-context --current --namespace=$KUBE_NAMESPACE
+                    kubectl rollout restart deployment static-website
                     '''
                 }
             }
