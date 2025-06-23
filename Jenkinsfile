@@ -4,21 +4,17 @@ podTemplate(
             name: 'docker',
             image: 'docker:24.0.5',
             command: 'cat',
-            ttyEnabled: true,
-            volumeMounts: [
-                // Correct usage here
-                volumeMount(mountPath: '/var/run/docker.sock', name: 'docker-sock')
-            ]
+            ttyEnabled: true
         ),
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:1.28.0-debian-11-r0',
+            image: 'bitnami/kubectl:1.28.0',
             command: 'cat',
             ttyEnabled: true
         )
     ],
     volumes: [
-        hostPathVolume(hostPath: '/var/run/docker.sock', mountPath: '/var/run/docker.sock')
+        hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
     ]
 ) {
     node(POD_LABEL) {
