@@ -8,7 +8,7 @@ podTemplate(
         ),
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:1.28.0',
+            image: 'image: bitnami/kubectl:latest',
             command: 'cat',
             ttyEnabled: true
         )
