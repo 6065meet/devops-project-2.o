@@ -1,42 +1,38 @@
 pipeline {
     agent {
         kubernetes {
-            label 'jenkins-agent'
-            defaultContainer 'jnlp'
             yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-    - name: docker
-      image: docker:24.0.5
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-    - name: kubectl
-      image: image: lachlanevenson/k8s-kubectl:v1.27.3
-
-      command:
-        - cat
-      tty: true
-  volumes:
+  - name: docker
+    image: docker:24.0.5
+    command:
+    - cat
+    tty: true
+    volumeMounts:
     - name: docker-sock
-      hostPath:
-        path: /var/run/docker.sock
+      mountPath: /var/run/docker.sock
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - cat
+    tty: true
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
 """
         }
     }
 
     environment {
-        DOCKER_IMAGE = "6065meet/static-website:latest"
-        KUBE_NAMESPACE = "webpage"
+        IMAGE = "6065meet/static-website:latest"
     }
 
     stages {
-        stage('Clone') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
@@ -45,7 +41,7 @@ spec:
         stage('Build Docker Image') {
             steps {
                 container('docker') {
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    sh 'docker build -t $IMAGE .'
                 }
             }
         }
@@ -60,10 +56,10 @@ spec:
             }
         }
 
-        stage('Push Image') {
+        stage('Push Docker Image') {
             steps {
                 container('docker') {
-                    sh 'docker push $DOCKER_IMAGE'
+                    sh 'docker push $IMAGE'
                 }
             }
         }
@@ -71,10 +67,8 @@ spec:
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    sh '''
-                    kubectl config set-context --current --namespace=$KUBE_NAMESPACE
-                    kubectl rollout restart deployment static-website
-                    '''
+                    sh 'kubectl apply -f deployment.yaml -n webpage'
+                    sh 'kubectl apply -f service.yaml -n webpage'
                 }
             }
         }
